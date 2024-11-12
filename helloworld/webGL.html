@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Document</title>
+        <link rel="stylesheet" href="../style.css" />
+    </head>
+    <body>
+        <canvas id="canvas" class="fixed-size-full"></canvas>
+        <script id="vertex-shader" type="notjs">
+            // an attribute will receive data from a buffer
+            attribute vec4 points;
+
+            // all shaders have a main function
+            void main() {
+
+              // gl_Position is a special variable a vertex shader
+              // is responsible for setting
+              gl_Position = points;
+            }
+        </script>
+        <script id="fragment-shader" type="notjs">
+
+            // fragment shaders don't have a default precision so we need
+            // to pick one. mediump is a good default
+            precision mediump float;
+
+            void main() {
+              // gl_FragColor is a special variable a fragment shader
+              // is responsible for setting
+              gl_FragColor = vec4(1, 0, 0.5, 1); // return redish-purple
+            }
+        </script>
+        <script>
+            /** @type {WebGLRenderingContext} */
+            const gl = document.querySelector('#canvas').getContext('webgl')
+            function resize() {
+                gl.canvas.width = window.innerWidth * devicePixelRatio
+                gl.canvas.height = window.innerHeight * devicePixelRatio
+                gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
+            }
+            document.addEventListener('resize', resize)
+            resize()
+
+            // shaders
+            const vertexShader = gl.createShader(gl.VERTEX_SHADER)
+            gl.shaderSource(
+                vertexShader,
+                document.querySelector('#vertex-shader').textContent
+            )
+            gl.compileShader(vertexShader)
+            let success = gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)
+            if (!success) {
+                throw new Error(
+                    'Failed to compile vertex shader: ' +
+                        gl.getShaderInfoLog(vertexShader)
+                )
+            }
+            const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER)
+            gl.shaderSource(
+                fragmentShader,
+                document.querySelector('#fragment-shader').textContent
+            )
+            gl.compileShader(fragmentShader)
+            success = gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)
+            if (!success) {
+                throw new Error(
+                    'Failed to compile fragment shader: ' +
+                        gl.getShaderInfoLog(fragmentShader)
+                )
+            }
+
+            // program
+            const program = gl.createProgram()
+            gl.attachShader(program, vertexShader)
+            gl.attachShader(program, fragmentShader)
+            gl.linkProgram(program)
+            success = gl.getProgramParameter(program, gl.LINK_STATUS)
+            if (!success) {
+                throw new Error(
+                    'Failed to link program: ' + gl.getProgramInfoLog(program)
+                )
+            }
+
+            const pointsLocation = gl.getAttribLocation(program, 'points')
+            const buffer = gl.createBuffer()
+            const points = [0, 0, 0, 0.5, 0.7, 0]
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+            gl.bufferData(
+                gl.ARRAY_BUFFER,
+                new Float32Array(points),
+                gl.STATIC_DRAW
+            )
+            gl.clearColor(255, 255, 255, 255)
+            gl.clear(gl.COLOR_BUFFER_BIT)
+            gl.useProgram(program)
+            gl.enableVertexAttribArray(pointsLocation)
+            gl.vertexAttribPointer(pointsLocation, 2, gl.FLOAT, false, 0, 0)
+            gl.drawArrays(gl.TRIANGLES, 0, 3)
+        </script>
+    </body>
+</html>
