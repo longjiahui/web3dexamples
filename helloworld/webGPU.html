@@ -1,11 +1,102 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
-    
-</body>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Document</title>
+        <link rel="stylesheet" href="../style.css">
+    </head>
+    <body>
+        <canvas id="canvas" class="fixed-size-full"></canvas>
+        <script>
+            const canvas = document.querySelector('#canvas')
+
+            function resize() {
+                canvas.width = window.innerWidth
+                canvas.height = window.innerHeight
+            }
+            document.addEventListener('resize', resize())
+            resize()
+
+            async function init() {
+                const adapter = await navigator.gpu.requestAdapter()
+                if (!adapter) {
+                    throw new Error('adapter is not supported')
+                }
+                const device = await adapter.requestDevice()
+                if (!device) {
+                    throw new Error('device is not supported')
+                }
+                const context = canvas.getContext('webgpu')
+                const format = navigator.gpu.getPreferredCanvasFormat()
+                context.configure({
+                    device,
+                    format,
+                })
+                const pipeline = device.createRenderPipeline({
+                    layout: 'auto',
+                    vertex: {
+                        module: device.createShaderModule({
+                            code: `
+@vertex
+fn main(
+  @builtin(vertex_index) VertexIndex : u32
+) -> @builtin(position) vec4f {
+  var pos = array<vec2f, 3>(
+    vec2(0.0, 0.5),
+    vec2(-0.5, -0.5),
+    vec2(0.5, -0.5)
+  );
+
+  return vec4f(pos[VertexIndex], 0.0, 1.0);
+}
+                        `,
+                        }),
+                    },
+                    fragment: {
+                        module: device.createShaderModule({
+                            code: `
+@fragment
+fn main() -> @location(0) vec4f {
+  return vec4(1.0, 0.0, 0.0, 1.0);
+}
+                        `,
+                        }),
+                        targets: [
+                            {
+                                format,
+                            },
+                        ],
+                    },
+                })
+                return {adapter, device, context, pipeline}
+            }
+
+            init().then(({adapter, device, context, pipeline}) => {
+                async function draw() {
+                    const commandEncoder = device.createCommandEncoder()
+                    const textureView = context.getCurrentTexture().createView()
+                    const renderPassDescriptor = {
+                        colorAttachments: [
+                            {
+                                view: textureView,
+                                clearValue: [0, 0, 0, 0],
+                                loadOp: 'clear',
+                                storeOp: 'store',
+                            },
+                        ],
+                    }
+                    const passEncoder =
+                        commandEncoder.beginRenderPass(renderPassDescriptor)
+                    passEncoder.setPipeline(pipeline)
+                    passEncoder.draw(3)
+                    passEncoder.end()
+
+                    device.queue.submit([commandEncoder.finish()])
+                    requestAnimationFrame(draw)
+                }
+                requestAnimationFrame(draw)
+            })
+        </script>
+    </body>
 </html>
